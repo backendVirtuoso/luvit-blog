@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Post, Query, Req, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { AppService } from './app.service';
 import { posts as PostEntity, users as UserEntity } from 'generated/prisma';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -56,5 +56,37 @@ export class AppController {
     const user = await this.appService.login(payload);
     req.session.user = user;
     return user;
+  }
+
+  @Get('/login')
+  async sessionLogin(
+    @Req()
+    req: Request & {
+      session: Record<'user', {
+        id: string;
+        name: string;
+        loginAt: Date;
+      }>;
+    },
+  ) {
+    if (!req?.session?.user) {
+      throw new HttpException('login please', HttpStatus.UNAUTHORIZED);
+    }
+
+    return req?.session?.user;
+  }
+
+  @Delete('/login')
+  deleteSession(
+    @Req()
+    req: Request & {
+      session: Record<'user', {
+        id: string;
+        name: string;
+        loginAt: Date;
+      }>;
+    }
+  ) {
+    req.session.destroy(function () { });
   }
 }
