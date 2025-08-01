@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
-import { posts as PostEntity, users as UserEntity } from 'generated/prisma';
+import { posts as PostEntity, users as UserEntity } from '@prisma/client';
 
 @Injectable()
 export class AppService {
@@ -53,17 +53,32 @@ export class AppService {
       },
     });
 
+    // null 체크 추가
+    if (!post) {
+      throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
+    }
+
     return post;
   }
 
   async savePost(
-    payload: Omit<PostEntity, 'id' | 'createdAt'>
+    payload: Omit<PostEntity, 'id' | 'createdAt' | 'thumbnail'> & {
+      authorId: string;
+    }
   ): Promise<PostEntity> {
+    const regex = new RegExp(/img src="([^"]+)"/, 'g');
+    const images = payload.content.match(regex);
+
+    const thumbnail =
+      images && images.length > 0
+        ? images[0].slice(9, images[0].length - 1)
+        : 'no image > default image';
+
     const newPost = await this.prisma.posts.create({
       data: {
         title: payload.title,
         subTitle: payload.subTitle,
-        thumbnail: payload.thumbnail,
+        thumbnail,
         content: payload.content,
         authorId: payload.authorId,
       },
@@ -77,10 +92,10 @@ export class AppService {
     name: string;
     loginAt: Date;
   }> {
-    const user: UserEntity = await this.prisma.users.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: {
-        name: payload.name
-      }
+        name: payload.name,
+      },
     });
 
     if (!user) throw new HttpException('user not found', HttpStatus.NOT_FOUND);
